@@ -1,0 +1,166 @@
+name: build
+
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: Image to build (or "all")
+        type: choice
+        required: true
+        default: all
+        options:
+          - all
+          - caddy
+          - spiderfoot
+          - file-scanner
+          - claude-runner
+  push:
+    branches: [main]
+    paths:
+      - 'caddy/**'
+      - 'spiderfoot/**'
+      - 'file-scanner/**'
+      - 'claude-runner/**'
+      - '.github/workflows/build.yml'
+  schedule:
+    # Weekly CVE/base-image refresh — Sunday 03:17 UTC
+    - cron: '17 3 * * 0'
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: build-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+env:
+  ALL_IMAGES: '["caddy"]'
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      images: ${{ steps.select.outputs.images }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - id: select
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_IMAGE: ${{ inputs.image }}
+        run: |
+          set -euo pipefail
+          all='${{ env.ALL_IMAGES }}'
+
+          case "$EVENT" in
+            workflow_dispatch)
+              if [ "$INPUT_IMAGE" = "all" ]; then
+                images="$all"
+              else
+                images=$(jq -cn --arg i "$INPUT_IMAGE" '[$i]')
+              fi
+              ;;
+            schedule)
+              images="$all"
+              ;;
+            push)
+              changed=$(git diff --name-only HEAD^ HEAD)
+              # Workflow file change -> rebuild all to prove the pipeline still works
+              if echo "$changed" | grep -q '^\.github/workflows/build\.yml$'; then
+                images="$all"
+              else
+                images=$(echo "$all" | jq -c --arg c "$changed" '
+                  ($c | split("\n")) as $lines
+                  | [ .[] as $img
+                      | select($lines | any(startswith($img + "/")))
+                      | $img ]
+                ')
+                # No matching image dirs changed → nothing to build
+                if [ "$images" = "[]" ]; then echo "No image dirs changed"; fi
+              fi
+              ;;
+            *)
+              images="$all"
+              ;;
+          esac
+
+          echo "images=$images" >> "$GITHUB_OUTPUT"
+          echo "Selected: $images"
+
+  build:
+    needs: plan
+    if: needs.plan.outputs.images != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.plan.outputs.images) }}
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository_owner }}/${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read upstream version
+        id: ver
+        run: |
+          set -euo pipefail
+          v=$(tr -d ' \n' < "${{ matrix.image }}/VERSION")
+          [ -n "$v" ] || { echo "empty VERSION for ${{ matrix.image }}" >&2; exit 1; }
+          echo "upstream=$v" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ steps.ver.outputs.upstream }}-${{ github.sha }}
+            type=raw,value=${{ steps.ver.outputs.upstream }},enable={{is_default_branch}}
+            type=sha,format=short
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ./${{ matrix.image }}
+          file: ./${{ matrix.image }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,scope=${{ matrix.image }},mode=max
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Cosign keyless sign
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          cosign sign --yes "${REGISTRY}/${IMAGE_NAME}@${DIGEST}"
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
