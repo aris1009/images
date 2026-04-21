@@ -110,7 +110,7 @@ jobs:
         id: ver
         run: |
           set -euo pipefail
-          v=$(tr -d ' \n' < "${{ matrix.image }}/VERSION")
+          v=$(grep -v '^\s*#' "${{ matrix.image }}/VERSION" | tr -d ' \n')
           [ -n "$v" ] || { echo "empty VERSION for ${{ matrix.image }}" >&2; exit 1; }
           echo "upstream=$v" >> "$GITHUB_OUTPUT"
 
