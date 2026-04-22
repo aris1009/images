@@ -37,7 +37,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  ALL_IMAGES: '["caddy"]'
+  ALL_IMAGES: '["caddy","claude-runner"]'
 
 jobs:
   plan:
@@ -143,6 +143,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.ver.outputs.upstream }}
           provenance: mode=max
           sbom: true
           cache-from: type=gha,scope=${{ matrix.image }}
