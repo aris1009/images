@@ -12,10 +12,6 @@ RUN apt-get update && \
 
 RUN npm install -g "@anthropic-ai/claude-code@${VERSION}"
 
-# The dispatcher (claude-runner-api-rs) runs jobs as non-root so the Claude
-# CLI's --dangerously-skip-permissions guard is satisfied, and bind-mounts
-# credentials at $HOME/.claude. node:22-slim ships a `node` user at UID 1000,
-# which matches the host keep user under --userns=keep-id.
 ENV HOME=/home/node
 USER node
 WORKDIR /home/node

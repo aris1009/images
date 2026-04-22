@@ -1,34 +1,60 @@
 # images
 
-Public container images for [aris1009](https://github.com/aris1009)'s homelab.
+Public container images built with signed, reproducible CI.
 
-Images are built by GitHub Actions and published to
-[`ghcr.io/aris1009/<image>`](https://github.com/aris1009?tab=packages).
+Every image is built by GitHub Actions, signed with
+[cosign](https://github.com/sigstore/cosign) (keyless OIDC), and published
+with [SLSA build provenance](https://slsa.dev/) + SBOM to
+`ghcr.io/aris1009/<image>`.
+
+## Images
+
+| Image | Contents |
+| --- | --- |
+| `caddy` | Caddy with `caddy-dns/cloudflare` and `mholt/caddy-ratelimit` plugins baked in. |
+| `claude-runner` | `node:22-slim` + `@anthropic-ai/claude-code` CLI; non-root `node` user; `ENTRYPOINT ["claude"]`. |
+
+## Tags
+
+- `<upstream-version>` — e.g. `caddy:2.11.2`, `claude-runner:2.1.117`.
+- `<upstream-version>-<commit-sha>` — immutable per build.
+- `latest` — most recent build on `main` (convenience only; pin by digest for production).
+
+## Pinning
+
+Always consume images by digest:
+
+```
+ghcr.io/aris1009/<image>:<tag>@sha256:<digest>
+```
+
+[Renovate](https://docs.renovatebot.com/) can track and auto-bump these pins.
+
+## Build cadence
+
+- On push to `main` when files under `<image>/` change (path-filtered matrix).
+- Weekly cron (base-image + CVE refresh).
+- On demand via `workflow_dispatch` (choose image or `all`).
 
 ## Layout
-
-Each image lives in its own top-level directory:
 
 ```
 <image>/
   Dockerfile
-  assets/       # optional: files COPYed into the image
+  VERSION       # Renovate-tracked upstream version (also passed as --build-arg VERSION)
 ```
-
-Current images:
-
-| Image | Source | Purpose |
-| --- | --- | --- |
-| `caddy` | `caddy/Dockerfile` | Caddy with `caddy-dns/cloudflare` + `mholt/caddy-ratelimit` plugins |
 
 ## Build locally
 
 ```sh
-podman build -t <image>:dev <image>/
+VERSION=$(grep -v '^\s*#' <image>/VERSION | tr -d ' \n')
+podman build --build-arg VERSION="$VERSION" -t <image>:dev <image>/
 ```
 
-## Publishing
+## Verify a pulled image
 
-Images are published on merge to `main` (for paths under the image's
-directory), on a weekly schedule (CVE refresh), and on demand via
-`workflow_dispatch`. Downstream consumers pin by digest.
+```sh
+cosign verify ghcr.io/aris1009/<image>@sha256:<digest> \
+  --certificate-identity-regexp 'https://github.com/aris1009/images/.+' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
