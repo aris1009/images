@@ -39,7 +39,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  ALL_IMAGES: '["caddy","claude-runner","gluetun"]'
+  ALL_IMAGES: '["caddy","claude-runner","file-scanner","gluetun","spiderfoot"]'
 
 jobs:
   plan:
