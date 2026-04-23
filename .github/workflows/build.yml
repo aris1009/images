@@ -97,11 +97,21 @@ jobs:
   build:
     needs: plan
     if: needs.plan.outputs.images != '[]'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         image: ${{ fromJSON(needs.plan.outputs.images) }}
+        platform:
+          - linux/amd64
+          - linux/arm64
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+            suffix: amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            suffix: arm64
     env:
       REGISTRY: ghcr.io
       IMAGE_NAME: ${{ github.repository_owner }}/${{ matrix.image }}
@@ -125,6 +135,90 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ./${{ matrix.image }}
+          file: ./${{ matrix.image }}/Dockerfile
+          platforms: ${{ matrix.platform }}
+          build-args: |
+            VERSION=${{ steps.ver.outputs.upstream }}
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha,scope=${{ matrix.image }}-${{ matrix.suffix }}
+          cache-to: type=gha,scope=${{ matrix.image }}-${{ matrix.suffix }},mode=max
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Cosign keyless sign (per-arch manifest)
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          cosign sign --yes "${REGISTRY}/${IMAGE_NAME}@${DIGEST}"
+
+      - name: Attest build provenance (per-arch)
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Export digest for merge
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p /tmp/digests
+          echo -n "${DIGEST#sha256:}" > "/tmp/digests/${DIGEST#sha256:}"
+
+      - name: Upload digest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.image }}-${{ matrix.suffix }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    needs: [plan, build]
+    if: needs.plan.outputs.images != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.plan.outputs.images) }}
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository_owner }}/${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read upstream version
+        id: ver
+        run: |
+          set -euo pipefail
+          v=$(grep -v '^\s*#' "${{ matrix.image }}/VERSION" | tr -d ' \n')
+          [ -n "$v" ] || { echo "empty VERSION for ${{ matrix.image }}" >&2; exit 1; }
+          echo "upstream=$v" >> "$GITHUB_OUTPUT"
+
+      - name: Download per-arch digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-${{ matrix.image }}-*
+          merge-multiple: true
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Image metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -132,39 +226,44 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=${{ steps.ver.outputs.upstream }}-${{ github.sha }}
+            type=raw,value=${{ steps.ver.outputs.upstream }}-r${{ github.run_number }}
             type=raw,value=${{ steps.ver.outputs.upstream }},enable={{is_default_branch}}
             type=sha,format=short
 
-      - name: Build and push
-        id: build
-        uses: docker/build-push-action@v6
-        with:
-          context: ./${{ matrix.image }}
-          file: ./${{ matrix.image }}/Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            VERSION=${{ steps.ver.outputs.upstream }}
-          provenance: mode=max
-          sbom: true
-          cache-from: type=gha,scope=${{ matrix.image }}
-          cache-to: type=gha,scope=${{ matrix.image }},mode=max
+      - name: Create manifest list
+        id: manifest
+        working-directory: /tmp/digests
+        run: |
+          set -euo pipefail
+          srcs=()
+          for f in *; do
+            srcs+=("${REGISTRY}/${IMAGE_NAME}@sha256:${f}")
+          done
+          echo "Combining ${#srcs[@]} per-arch manifests:"
+          printf '  %s\n' "${srcs[@]}"
+          tag_args=()
+          while IFS= read -r t; do
+            [ -n "$t" ] && tag_args+=(-t "$t")
+          done <<< "${{ steps.meta.outputs.tags }}"
+          docker buildx imagetools create "${tag_args[@]}" "${srcs[@]}"
+          first_tag=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
+          digest=$(docker buildx imagetools inspect "$first_tag" --format '{{json .Manifest}}' | jq -r '.digest')
+          [[ "$digest" =~ ^sha256: ]] || { echo "unexpected digest: $digest" >&2; exit 1; }
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "Index digest: $digest"
 
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
 
-      - name: Cosign keyless sign
+      - name: Cosign keyless sign (index, recursive)
         env:
-          COSIGN_EXPERIMENTAL: "1"
-          DIGEST: ${{ steps.build.outputs.digest }}
+          DIGEST: ${{ steps.manifest.outputs.digest }}
         run: |
-          cosign sign --yes "${REGISTRY}/${IMAGE_NAME}@${DIGEST}"
+          cosign sign --yes --recursive "${REGISTRY}/${IMAGE_NAME}@${DIGEST}"
 
-      - name: Attest build provenance
+      - name: Attest build provenance (index)
         uses: actions/attest-build-provenance@v2
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          subject-digest: ${{ steps.build.outputs.digest }}
+          subject-digest: ${{ steps.manifest.outputs.digest }}
           push-to-registry: true

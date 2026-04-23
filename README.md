@@ -19,9 +19,12 @@ with [SLSA build provenance](https://slsa.dev/) + SBOM to
 
 ## Tags
 
-- `<upstream-version>` — e.g. `caddy:2.11.2`, `claude-runner:2.1.117`.
-- `<upstream-version>-<commit-sha>` — immutable per build.
+- `<upstream-version>` — floating; tracks the most recent build on `main` for that upstream version.
+- `<upstream-version>-r<N>` — immutable per build; `N` is `github.run_number`, monotonic across the whole repo. Shared across matrix jobs in a run, so `caddy:2.11.2-r150` and `gluetun:3.41.1-r150` were built together.
+- `sha-<short>` — immutable; for forensics.
 - `latest` — most recent build on `main` (convenience only; pin by digest for production).
+
+Images are multi-arch (`linux/amd64`, `linux/arm64`); the tag resolves to a manifest list. `cosign sign --recursive` signs both the index and the per-platform sub-manifests.
 
 ## Pinning
 
