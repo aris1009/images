@@ -1,0 +1,110 @@
+name: validate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '**/Dockerfile'
+      - '.github/workflows/validate.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  from-digests-are-multiarch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify every FROM digest is a multi-arch index covering amd64+arm64
+        run: |
+          set -euo pipefail
+
+          # Extract every `FROM <ref>@sha256:<digest>` across all Dockerfiles.
+          # Stage names (AS build, AS final) are tolerated because the ref+digest
+          # are captured before any "AS <name>" tail.
+          mapfile -t refs < <(
+            grep -hE '^[[:space:]]*FROM[[:space:]]+[^[:space:]]+@sha256:[0-9a-f]{64}' \
+              $(find . -name Dockerfile -not -path './.git/*') \
+              | awk '{for (i=1; i<=NF; i++) if ($i ~ /@sha256:/) print $i}' \
+              | sort -u
+          )
+
+          if [ "${#refs[@]}" -eq 0 ]; then
+            echo "No digest-pinned FROMs found — nothing to validate."
+            exit 0
+          fi
+
+          echo "Found ${#refs[@]} unique digest-pinned FROM refs:"
+          printf '  %s\n' "${refs[@]}"
+          echo
+
+          fail=0
+          for ref in "${refs[@]}"; do
+            registry="${ref%%/*}"
+            rest="${ref#*/}"
+            # Docker Hub shorthand: docker.io/library/alpine
+            if [[ "$registry" != *.* && "$registry" != *:* ]]; then
+              # no explicit registry — treat whole thing as Docker Hub path
+              rest="$ref"
+              registry="docker.io"
+            fi
+            repo_and_digest="$rest"
+            repo="${repo_and_digest%@*}"
+            repo="${repo%%:*}"
+            digest="${repo_and_digest#*@}"
+
+            # Rewrite docker.io to registry-1.docker.io and add library/ if bare
+            case "$registry" in
+              docker.io)
+                api_host="registry-1.docker.io"
+                if [[ "$repo" != */* ]]; then
+                  repo="library/$repo"
+                fi
+                token=$(curl -fsSL "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull" | jq -r .token)
+                auth=(-H "Authorization: Bearer ${token}")
+                ;;
+              ghcr.io)
+                api_host="ghcr.io"
+                auth=()
+                ;;
+              *)
+                api_host="$registry"
+                auth=()
+                ;;
+            esac
+
+            mt=$(curl -fsSL "${auth[@]}" \
+              -H "Accept: application/vnd.oci.image.index.v1+json" \
+              -H "Accept: application/vnd.docker.distribution.manifest.list.v2+json" \
+              -H "Accept: application/vnd.oci.image.manifest.v1+json" \
+              -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+              "https://${api_host}/v2/${repo}/manifests/${digest}" \
+              | jq -r '.mediaType // ""')
+
+            case "$mt" in
+              application/vnd.oci.image.index.v1+json|application/vnd.docker.distribution.manifest.list.v2+json)
+                # verify arch coverage
+                archs=$(curl -fsSL "${auth[@]}" \
+                  -H "Accept: application/vnd.oci.image.index.v1+json" \
+                  -H "Accept: application/vnd.docker.distribution.manifest.list.v2+json" \
+                  "https://${api_host}/v2/${repo}/manifests/${digest}" \
+                  | jq -r '[.manifests[] | select(.platform.os == "linux") | .platform.architecture] | unique | join(",")')
+                if [[ ",$archs," != *,amd64,* || ",$archs," != *,arm64,* ]]; then
+                  echo "FAIL $ref"
+                  echo "  index present but missing amd64 or arm64 — got: $archs"
+                  fail=1
+                else
+                  echo "OK   $ref ($archs)"
+                fi
+                ;;
+              *)
+                echo "FAIL $ref"
+                echo "  mediaType is $mt — this is a single-platform manifest."
+                echo "  Repin to the manifest-list/index digest for this tag."
+                fail=1
+                ;;
+            esac
+          done
+
+          exit "$fail"
