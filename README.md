@@ -13,6 +13,9 @@ with [SLSA build provenance](https://slsa.dev/) + SBOM to
 | --- | --- |
 | `caddy` | Caddy with `caddy-dns/cloudflare` and `mholt/caddy-ratelimit` plugins baked in. |
 | `claude-runner` | `node:22-slim` + `@anthropic-ai/claude-code` CLI; non-root `node` user; `ENTRYPOINT ["claude"]`. |
+| `file-scanner` | Alpine + `clamav` (clamdscan client) + `inotify-tools` + generic watcher script; pairs with a separate `clamd` container. |
+| `gluetun` | VPN client rebuilt from pinned `qdm12/gluetun` source; mirrors upstream runtime verbatim (alpine + openvpn 2.5/2.6 dual install). |
+| `spiderfoot` | OSINT scanner rebuilt from pinned `smicallef/spiderfoot` source (no official registry image). |
 
 ## Tags
 

@@ -1,0 +1,2 @@
+# renovate: datasource=docker depName=alpine
+3.23
