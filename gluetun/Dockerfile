@@ -1,6 +1,6 @@
 ARG VERSION
 
-FROM docker.io/library/golang:1.25-alpine3.23@sha256:30e1078ea1ce91dcd8f48f27c0d7549cf23b32019de8b78cc0dc7b7707987dd5 AS build
+FROM docker.io/library/golang:1.25-alpine3.23@sha256:5caaf1cca9dc351e13deafbc3879fd4754801acba8653fa9540cea125d01a71f AS build
 ARG VERSION
 RUN apk add --no-cache git ca-certificates
 WORKDIR /src
@@ -15,7 +15,7 @@ RUN set -eu; \
       -X 'main.commit=${COMMIT}'" \
       -o /gluetun-entrypoint cmd/gluetun/main.go
 
-FROM docker.io/library/alpine:3.23@sha256:4d889c14e7d5a73929ab00be2ef8ff22437e7cbc545931e52554a7b00e123d8b
+FROM docker.io/library/alpine:3.23@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11
 ARG VERSION
 LABEL \
     org.opencontainers.image.source="https://github.com/aris1009/images" \
