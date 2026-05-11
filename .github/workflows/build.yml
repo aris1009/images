@@ -151,7 +151,7 @@ jobs:
           cache-to: type=gha,scope=${{ matrix.image }}-${{ matrix.suffix }},mode=max
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@v4.1.2
 
       - name: Cosign keyless sign (per-arch manifest)
         env:
@@ -253,7 +253,7 @@ jobs:
           echo "Index digest: $digest"
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@v4.1.2
 
       - name: Cosign keyless sign (index, recursive)
         env:
