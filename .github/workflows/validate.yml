@@ -14,7 +14,7 @@ jobs:
   from-digests-are-multiarch:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Verify every FROM digest is a multi-arch index covering amd64+arm64
         run: |
