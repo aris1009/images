@@ -1,4 +1,4 @@
-FROM docker.io/library/caddy:2.11.2-builder@sha256:10ed0251c5cd1dbb4db0b71ad43121147961a51adfec35febce2c93ea25c24f4 AS builder
+FROM docker.io/library/caddy:2.11.2-builder@sha256:1ecefa333507828a592aaecc68d5f62a993787057429c04e9b0438a65c980a30 AS builder
 RUN xcaddy build \
     --with github.com/caddy-dns/cloudflare@v0.2.4 \
     --with github.com/mholt/caddy-ratelimit@v0.1.0
