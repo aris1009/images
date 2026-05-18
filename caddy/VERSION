@@ -1,2 +1,2 @@
 # renovate: datasource=docker depName=caddy
-2.11.2
+2.11.3
