@@ -1,2 +1,6 @@
 *.swp
 .DS_Store
+
+# <scrubbed> migration safety nets (retained until 2026-06-21)
+<removed>/
+<removed>/
