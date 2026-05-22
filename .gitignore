@@ -1,6 +1,6 @@
 *.swp
 .DS_Store
-
-# Pre-anvil migration safety nets (retained until 2026-06-21)
 .beads.embedded-pre-anvil/
 .beads.stale-worktree-pre-anvil/
+
+.beads/issues.jsonl
