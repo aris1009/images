@@ -1,0 +1,9 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "server",
+  "dolt_server_host": "anvil",
+  "dolt_server_user": "agent",
+  "dolt_database": "images",
+  "project_id": "758f4b6e-8c14-47dd-a76f-7b04a1e0f500"
+}
