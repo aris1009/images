@@ -1,0 +1,13 @@
+# TLS-SNI egress allowlist. One host per line; '#' comments and blanks ignored.
+# Matched with `-m dom`: an entry `example.com` also matches `api.example.com`.
+# Empty file = deny ALL egress. Override by mounting your own at
+# /etc/haproxy/allowlist.txt. Keep it MINIMAL — every line is a host a stolen
+# credential could be sent to.
+#
+# This default set is the 1mcp aggregator's upstreams (the image's first consumer).
+rudderstack.grafana.net
+mcp.rudderstack.com
+mcp.notion.com
+mcp.slack.com
+mcp.linear.app
+slack.com

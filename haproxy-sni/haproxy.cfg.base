@@ -1,0 +1,46 @@
+# Base config. The entrypoint appends one `use_backend`/`backend` pair per line
+# in allowlist.txt, then a deny-by-default fallback. mode tcp, NO `ssl` on the
+# bind — HAProxy reads the plaintext ClientHello SNI WITHOUT terminating TLS:
+# no decrypt, no cert, no MITM. End-to-end TLS to the real host is preserved.
+#
+# Wiring: the protected app reaches this proxy by name (DNS alias of each allowed
+# host -> this container). HAProxy matches SNI and routes to the matching backend,
+# which dials the real host:443. Non-allowlisted SNI hits be_denied (no server ->
+# connection dropped). No iptables, no transparent-dst recovery.
+
+global
+    log stdout format raw local0
+    maxconn 2048
+
+# Backends resolve upstreams via REAL public DNS, not Docker's embedded resolver.
+# Required because the app-side DNS alias points each allowed host at THIS proxy;
+# without an explicit resolver the proxy would resolve the upstream to itself and
+# loop. Override the nameservers by mounting your own base if you prefer internal
+# DNS — but never point these at the alias network.
+resolvers pubdns
+    nameserver cf 1.1.1.1:53
+    nameserver g8 8.8.8.8:53
+    hold valid 10s
+
+defaults
+    mode                tcp
+    log                 global
+    option              tcplog
+    timeout connect     5s
+    timeout client      30s
+    timeout server      30s
+
+frontend sni_gate
+    bind                :443
+    tcp-request inspect-delay 5s
+    tcp-request content accept if { req.ssl_hello_type 1 }
+    # --- BEGIN GENERATED ACLs/ROUTES (entrypoint fills from allowlist.txt) ---
+    # --- END GENERATED ---
+    default_backend be_denied
+
+# --- BEGIN GENERATED BACKENDS ---
+# --- END GENERATED ---
+
+backend be_denied
+    # No server: deny-by-default. Non-allowlisted SNI lands here and is dropped.
+    timeout connect 1s
