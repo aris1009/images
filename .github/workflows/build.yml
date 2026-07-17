@@ -15,6 +15,7 @@ on:
           - file-scanner
           - claude-runner
           - gluetun
+          - haproxy-sni
   push:
     branches: [main]
     paths:
@@ -23,6 +24,7 @@ on:
       - 'file-scanner/**'
       - 'claude-runner/**'
       - 'gluetun/**'
+      - 'haproxy-sni/**'
       - '.github/workflows/build.yml'
   schedule:
     # Weekly CVE/base-image refresh — Sunday 03:17 UTC
@@ -39,7 +41,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  ALL_IMAGES: '["caddy","claude-runner","file-scanner","gluetun","spiderfoot"]'
+  ALL_IMAGES: '["caddy","claude-runner","file-scanner","gluetun","haproxy-sni","spiderfoot"]'
 
 jobs:
   plan:
