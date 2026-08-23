@@ -1,6 +1,6 @@
 ARG VERSION
 
-FROM docker.io/library/golang:1.26-alpine3.23@sha256:91eda9776261207ea25fd06b5b7fed8d397dd2c0a283e77f2ab6e91bfa71079d AS build
+FROM docker.io/library/golang:1.26-alpine3.23@sha256:b17af760035fc2f338eed92d448a6c67f2d45438844fc6c60678fa5f99e44b57 AS build
 ARG VERSION
 RUN apk add --no-cache git ca-certificates
 WORKDIR /src
