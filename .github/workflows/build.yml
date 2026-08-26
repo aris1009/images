@@ -14,6 +14,7 @@ on:
           - spiderfoot
           - file-scanner
           - claude-runner
+          - offsec-claude
           - gluetun
           - haproxy-sni
   push:
@@ -23,6 +24,7 @@ on:
       - 'spiderfoot/**'
       - 'file-scanner/**'
       - 'claude-runner/**'
+      - 'offsec-claude/**'
       - 'gluetun/**'
       - 'haproxy-sni/**'
       - '.github/workflows/build.yml'
@@ -41,7 +43,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  ALL_IMAGES: '["caddy","claude-runner","file-scanner","gluetun","haproxy-sni","spiderfoot"]'
+  ALL_IMAGES: '["caddy","claude-runner","file-scanner","gluetun","haproxy-sni","offsec-claude","spiderfoot"]'
 
 jobs:
   plan:
