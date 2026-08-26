@@ -16,6 +16,7 @@ with [SLSA build provenance](https://slsa.dev/) + SBOM to
 | `file-scanner` | Alpine + `clamav` (clamdscan client) + `inotify-tools` + generic watcher script; pairs with a separate `clamd` container. |
 | `gluetun` | VPN client rebuilt from pinned `qdm12/gluetun` source; mirrors upstream runtime verbatim (alpine + openvpn 2.5/2.6 dual install). |
 | `haproxy-sni` | TLS-SNI egress allowlist (HAProxy `mode tcp`). Deny-by-default, no MITM/decrypt; routes allowlisted hosts to their real upstream by ClientHello SNI. Mount `allowlist.txt` (one host/line); app reaches the proxy by DNS alias. |
+| `offsec-claude` | `node:24-slim` + `@anthropic-ai/claude-code` + offensive toolbelt (`openssl`, `socat`, `python3` with hash-pinned `requests`/`pyjwt`, `interactsh-client`). No pip, no sudo, no firewall tooling — designed to run inside an external egress cage. |
 | `spiderfoot` | OSINT scanner rebuilt from pinned `smicallef/spiderfoot` source (no official registry image). |
 
 ## Tags
