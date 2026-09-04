@@ -4,9 +4,15 @@
 # no decrypt, no cert, no MITM. End-to-end TLS to the real host is preserved.
 #
 # Wiring: the protected app reaches this proxy by name (DNS alias of each allowed
-# host -> this container). HAProxy matches SNI and routes to the matching backend,
-# which dials the real host:443. Non-allowlisted SNI hits be_denied (no server ->
+# host -> this container). HAProxy matches SNI against the allowlist, then dials
+# THE HOST THE CLIENT ASKED FOR -- resolved at connect time from the SNI itself,
+# not from the allowlist entry. Non-allowlisted SNI hits be_denied (no server ->
 # connection dropped). No iptables, no transparent-dst recovery.
+#
+# One dynamic backend, not one `server <entry>:443` per allowlist line: `-m dom`
+# matches subdomains, so an entry authorises a subtree, and a static backend can
+# only name a single upstream. Resolving the SNI at connect time keeps the two
+# concerns separate -- the allowlist decides IF, the SNI decides WHERE.
 
 global
     log stdout format raw local0
@@ -33,13 +39,32 @@ defaults
 frontend sni_gate
     bind                :443
     tcp-request inspect-delay 5s
+    # MUST precede the accept below: `accept` ends evaluation of this ruleset, so
+    # a set-var placed after it never runs and the backend sees no SNI.
+    # Stash the SNI for the backend: be_allowed dials this name, not a fixed host.
+    tcp-request content set-var(txn.sni) req.ssl_sni if { req.ssl_hello_type 1 }
     tcp-request content accept if { req.ssl_hello_type 1 }
     # --- BEGIN GENERATED ACLs/ROUTES (entrypoint fills from allowlist.txt) ---
     # --- END GENERATED ---
     default_backend be_denied
 
-# --- BEGIN GENERATED BACKENDS ---
-# --- END GENERATED ---
+# The one backend every allowlisted route uses. The frontend has already decided
+# the SNI is permitted; this resolves that exact name via public DNS and dials it.
+backend be_allowed
+    # do-resolve is ASYNCHRONOUS: it yields while the DNS query is in flight, and
+    # a ruleset can only yield if it has an inspect-delay. Without this line the
+    # action gives up, txn.dstip is never set, and every allowed host is rejected.
+    tcp-request inspect-delay 5s
+    tcp-request content do-resolve(txn.dstip,pubdns,ipv4) var(txn.sni)
+    # Fail closed: no resolution, no connection.
+    tcp-request content reject unless { var(txn.dstip) -m found }
+    # Never dial loopback (the proxy answers on the allowlisted names, so this
+    # would route back into itself) or link-local (169.254.0.0/16 is cloud IMDS).
+    tcp-request content reject if { var(txn.dstip) -m ip 127.0.0.0/8 169.254.0.0/16 }
+    tcp-request content set-dst var(txn.dstip)
+    tcp-request content set-dst-port int(443)
+    # 0.0.0.0:0 == "use the destination set above" (HAProxy dynamic-dst server).
+    server clear 0.0.0.0:0
 
 backend be_denied
     # No server: deny-by-default. Non-allowlisted SNI lands here and is dropped.
