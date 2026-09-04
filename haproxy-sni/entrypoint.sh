@@ -14,6 +14,14 @@ ALLOW=/etc/haproxy/allowlist.txt
 routes=""   # ACL + use_backend lines for the frontend
 backends="" # backend blocks
 i=0
+# The allowlist is mounted configuration. A missing mount and an empty file both
+# fail closed the same way: no ACLs, so every SNI lands in be_denied.
+if [ ! -f "$ALLOW" ]; then
+    echo "haproxy-sni: ERROR no allowlist at $ALLOW -> denying ALL egress." >&2
+    echo "haproxy-sni: mount one read-only, e.g. ./allowlist.txt:$ALLOW:ro" >&2
+    : > /tmp/allowlist.empty
+    ALLOW=/tmp/allowlist.empty
+fi
 while IFS= read -r line || [ -n "$line" ]; do
     host=$(printf '%s' "$line" | sed 's/#.*//; s/[[:space:]]//g')
     [ -z "$host" ] && continue

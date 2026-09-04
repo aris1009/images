@@ -13,8 +13,11 @@ LABEL \
 USER root
 
 COPY haproxy.cfg.base /usr/local/etc/haproxy/haproxy.cfg.base
-COPY allowlist.txt /etc/haproxy/allowlist.txt
 COPY entrypoint.sh /usr/local/bin/sni-entrypoint.sh
+# The allowlist is runtime configuration. Mount it:
+#   volumes:
+#     - ./allowlist.txt:/etc/haproxy/allowlist.txt:ro
+# Absent or empty => deny ALL egress (fail closed).
 RUN chmod +x /usr/local/bin/sni-entrypoint.sh
 
 # Back to the unprivileged upstream default; no caps/iptables needed (the proxy
