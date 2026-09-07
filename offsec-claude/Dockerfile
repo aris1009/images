@@ -7,7 +7,7 @@
 # Deliberately absent: sudo, iptables, ipset, NET_ADMIN tooling. Containment belongs
 # to the gateway, intended to run inside an egress cage.
 
-ARG BASE=docker.io/library/node:24-slim@sha256:c2d5ade763cacfb03fe9cb8e8af5d1be5041ff331921fa26a9b231ca3a4f780a
+ARG BASE=docker.io/library/node:24-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e
 
 # ---------------------------------------------------------------------------
 # stage: pydeps — resolve Python deps with hash verification.
