@@ -4,5 +4,5 @@ RUN xcaddy build \
     --with github.com/mholt/caddy-ratelimit@v0.1.0 \
     --with github.com/corazawaf/coraza-caddy/v2@v2.6.1
 
-FROM docker.io/library/caddy:2.11.6@sha256:3422ce6de165df66534f9b9ba50efaf457114ec961763cc52f5dbdaac2972d73
+FROM docker.io/library/caddy:2.11.7@sha256:f2a1290d0463aad60660d4ec134943f183ee2a5f6c3eb7bf32dd984f2f020772
 COPY --from=builder /usr/bin/caddy /usr/bin/caddy
