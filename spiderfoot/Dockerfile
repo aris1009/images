@@ -1,6 +1,6 @@
 ARG VERSION
 
-FROM docker.io/library/alpine:3.24@sha256:a2d49ea686c2adfe3c992e47dc3b5e7fa6e6b5055609400dc2acaeb241c829f4 AS build
+FROM docker.io/library/alpine:3.24@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a AS build
 ARG VERSION
 RUN apk add --no-cache gcc git curl python3 python3-dev py3-pip swig tinyxml-dev \
     musl-dev openssl-dev libffi-dev libxslt-dev libxml2-dev jpeg-dev \
@@ -15,7 +15,7 @@ RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 RUN pip3 install -U pip && pip3 install -r requirements.txt
 
-FROM docker.io/library/alpine:3.24@sha256:a2d49ea686c2adfe3c992e47dc3b5e7fa6e6b5055609400dc2acaeb241c829f4
+FROM docker.io/library/alpine:3.24@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a
 ARG VERSION
 
 LABEL \
