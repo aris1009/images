@@ -11,6 +11,12 @@ WORKDIR /src
 # Bump to >=6.0.1 (first release with the Cython fix). spiderfoot only uses
 # yaml.safe_load, which is unchanged between 5.x and 6.x, so behavior is preserved.
 RUN sed -i 's/^pyyaml>=5\.4\.1,<6$/pyyaml>=6.0.1,<7/' requirements.txt
+# Upstream v4.0 pins lxml>=4.6.3,<5 — 4.x has no cp314 wheel and its Cython
+# output uses CPython private APIs removed in 3.14, so the sdist build fails.
+# Bump to >=6.0.1 (first release with cp314 musllinux wheels for amd64/arm64).
+# spiderfoot only uses lxml through BeautifulSoup's "lxml" parser, whose API is
+# unchanged between the 4.x and 6.x series, so behavior is preserved.
+RUN sed -i 's/^lxml>=4\.6\.3,<5$/lxml>=6.0.1,<7/' requirements.txt
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 RUN pip3 install -U pip && pip3 install -r requirements.txt
