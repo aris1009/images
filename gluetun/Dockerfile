@@ -15,7 +15,7 @@ RUN set -eu; \
       -X 'main.commit=${COMMIT}'" \
       -o /gluetun-entrypoint cmd/gluetun/main.go
 
-FROM docker.io/library/alpine:3.24@sha256:a2d49ea686c2adfe3c992e47dc3b5e7fa6e6b5055609400dc2acaeb241c829f4
+FROM docker.io/library/alpine:3.24@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a
 ARG VERSION
 LABEL \
     org.opencontainers.image.source="https://github.com/aris1009/images" \
