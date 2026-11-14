@@ -3,7 +3,7 @@ ARG VERSION
 # Static-build stage. Alpine on amd64 is a musl-native environment, so anything
 # compiled here against musl + the static deps below produces a fully static
 # binary with no dynamic loader required at runtime.
-FROM docker.io/library/alpine:3.24@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a AS build
+FROM docker.io/library/alpine:3.24@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf AS build
 ARG VERSION
 
 RUN apk add --no-cache \
