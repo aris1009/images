@@ -1,6 +1,6 @@
 ARG VERSION
 # Pinned by digest (Renovate bumps VERSION + this digest together).
-FROM docker.io/library/haproxy:3.4-alpine@sha256:2caaf8b1a1ef67f3f1ea9b721f2821675d3ba4500fb518e23884fecb93e8dbaa
+FROM docker.io/library/haproxy:3.4-alpine@sha256:b9fe316f718d5015c5cfebd8ca019591f3e44656f61d93cb8b59a1028961e530
 ARG VERSION
 
 LABEL \
