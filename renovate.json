@@ -27,6 +27,24 @@
   ],
   "packageRules": [
     {
+      "description": "Keep an image's Dockerfile pin and its VERSION file in one PR: they track the same upstream and drift apart otherwise",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["caddy", "docker.io/library/caddy"],
+      "groupName": "caddy"
+    },
+    {
+      "description": "Keep alpine Dockerfile pins and file-scanner/VERSION in one PR",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["alpine", "docker.io/library/alpine"],
+      "groupName": "alpine"
+    },
+    {
+      "description": "Keep the haproxy-sni Dockerfile pin and VERSION in one PR",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["haproxy", "docker.io/library/haproxy"],
+      "groupName": "haproxy"
+    },
+    {
       "description": "Auto-merge patch/minor/digest bumps after CI green",
       "matchUpdateTypes": ["patch", "minor", "pin", "digest"],
       "automerge": true
