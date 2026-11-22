@@ -33,31 +33,32 @@ RUN python3 -m pip install \
     python3 -c "import sys; sys.path.insert(0,'/pydeps'); import requests, jwt; print(requests.__version__, jwt.__version__)"
 
 # ---------------------------------------------------------------------------
-# stage: interactsh — pinned release, checksum-verified, binary only.
+# stage: interactsh — built from source at the pinned tag, binary only.
+#
+# Built rather than downloaded because the published v1.4.1 binary carries
+# golang.org/x/crypto v0.55.0, x/net v0.57.0 and klauspost/compress v1.18.2,
+# which current advisory data still flags. The go.mod overrides below clear
+# them; the same module set is used in gluetun/Dockerfile.
+#
+# Integrity: a tag can be moved, so the clone is checked against the tag's
+# commit SHA. That replaces the release-archive checksums this stage used to
+# verify.
 # ---------------------------------------------------------------------------
-FROM ${BASE} AS interactsh
+FROM docker.io/library/golang:1.27-alpine3.23@sha256:8a5046497cda39860b832ffdbe8dd66018a0f05bb01352f533a36e7e2ced66a0 AS interactsh
 
-ARG TARGETARCH
-ARG INTERACTSH_VERSION=1.3.1
-ARG INTERACTSH_SHA256_AMD64=d553fb3dd4c2684c953aedeb555f13f0d1ca94bd75112c949a5fd975d385a903
-ARG INTERACTSH_SHA256_ARM64=475aa78c59afad115149a5b0d6d9c99d2410a4f12d0c6f5a24c32e7338fc6adb
+ARG INTERACTSH_VERSION=1.4.1
+ARG INTERACTSH_COMMIT=a5b78b2f1d990cd18c85cc422f0e651cf204c464
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl unzip ca-certificates && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN set -eux; \
-    case "${TARGETARCH}" in \
-      amd64) sha="${INTERACTSH_SHA256_AMD64}" ;; \
-      arm64) sha="${INTERACTSH_SHA256_ARM64}" ;; \
-      *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
-    esac; \
-    f="interactsh-client_${INTERACTSH_VERSION}_linux_${TARGETARCH}.zip"; \
-    curl -fsSL --retry 3 -o "/tmp/${f}" \
-      "https://github.com/projectdiscovery/interactsh/releases/download/v${INTERACTSH_VERSION}/${f}"; \
-    echo "${sha}  /tmp/${f}" | sha256sum -c -; \
-    mkdir -p /out; \
-    unzip -j -o "/tmp/${f}" interactsh-client -d /out; \
+RUN apk add --no-cache git ca-certificates
+WORKDIR /src
+RUN set -eu; \
+    git clone --depth=1 --branch "v${INTERACTSH_VERSION}" \
+      https://github.com/projectdiscovery/interactsh .; \
+    test "$(git rev-parse HEAD)" = "${INTERACTSH_COMMIT}"; \
+    go get golang.org/x/crypto@v0.59.0 golang.org/x/net@v0.63.0 \
+           golang.org/x/text@v0.44.0 github.com/klauspost/compress@v1.20.5; \
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" \
+      -o /out/interactsh-client ./cmd/interactsh-client; \
     chmod 0755 /out/interactsh-client; \
     /out/interactsh-client -version 2>&1 | head -1 || true
 
@@ -84,6 +85,13 @@ RUN apt-get update && \
         python3 \
         ripgrep && \
     rm -rf /var/lib/apt/lists/*
+
+# npm 11.20.0, which node 26.13.1 ships, bundles undici 6.28.0 and
+# brace-expansion 5.0.9 — both below their fixed releases and not replaceable
+# by a base-image bump, because every current node 26 build carries the same
+# npm. Installing npm 12.2.3 brings undici 6.29.1 and brace-expansion 5.0.12.
+# Its engines field is ^22.22.2 || ^24.15.0 || >=26.0.0, so node 26 qualifies.
+RUN npm install -g --no-fund --no-audit npm@12.2.3
 
 RUN npm install -g "@anthropic-ai/claude-code@${VERSION}"
 
