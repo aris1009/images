@@ -5,6 +5,14 @@ ARG VERSION
 RUN apk add --no-cache git ca-certificates
 WORKDIR /src
 RUN git clone --depth=1 --branch "${VERSION}" https://github.com/qdm12/gluetun .
+# Dependency refresh over the upstream go.mod, reviewed 2026-11-23. The tag
+# below pins golang.org/x/crypto v0.45.0, x/net v0.47.0, x/text v0.31.0 and
+# klauspost/compress v1.18.1, all of which current advisory data flags; upstream
+# has no fixed release yet (v3.41.4-rc2 carries the same pins). These are the
+# module versions the tag was compiled and tested against, not a floating
+# latest. Bump them deliberately, with the same build check.
+RUN go get golang.org/x/crypto@v0.59.0 golang.org/x/net@v0.63.0 \
+        golang.org/x/text@v0.44.0 github.com/klauspost/compress@v1.20.5
 RUN set -eu; \
     COMMIT=$(git rev-parse --short HEAD); \
     CREATED=$(date -u +%Y-%m-%dT%H:%M:%SZ); \
