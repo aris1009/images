@@ -31,6 +31,10 @@ RUN python3 -m venv /opt/venv && \
     /opt/venv/bin/pip install -U pip "setuptools>=78.1.1"
 ENV PATH="/opt/venv/bin:$PATH"
 RUN pip3 install -r requirements.txt
+# pip bundles a CycloneDX SBOM of the environment it was built in. Image
+# scanners parse it as installed packages and report that environment's
+# setuptools here. pip never reads it.
+RUN rm -f /opt/venv/lib/python*/site-packages/pip/_vendor/bom.cdx.json
 
 FROM docker.io/library/alpine:3.24@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a
 ARG VERSION
