@@ -24,10 +24,13 @@ RUN sed -i 's/^lxml>=4\.6\.3,<5$/lxml>=6.0.1,<7/' requirements.txt
 # unchanged in 50.0.2 + 26.4.0 — verified against that exact pair.
 RUN sed -i 's/^cryptography>=3\.4\.8,<4$/cryptography>=50,<51/' requirements.txt
 RUN sed -i 's/^pyOpenSSL>=21\.0\.0,<22$/pyOpenSSL>=26,<27/' requirements.txt
-RUN python3 -m venv /opt/venv
+# Create the venv and raise setuptools in the SAME layer. ensurepip seeds an
+# older setuptools; upgrading it in a later layer would leave the seeded copy
+# behind as a deleted file that image scanners still report.
+RUN python3 -m venv /opt/venv && \
+    /opt/venv/bin/pip install -U pip "setuptools>=78.1.1"
 ENV PATH="/opt/venv/bin:$PATH"
-RUN pip3 install -U pip && pip3 install -r requirements.txt && \
-    pip3 install -U "setuptools>=78.1.1"
+RUN pip3 install -r requirements.txt
 
 FROM docker.io/library/alpine:3.24@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a
 ARG VERSION
