@@ -17,9 +17,17 @@ RUN sed -i 's/^pyyaml>=5\.4\.1,<6$/pyyaml>=6.0.1,<7/' requirements.txt
 # spiderfoot only uses lxml through BeautifulSoup's "lxml" parser, whose API is
 # unchanged between the 4.x and 6.x series, so behavior is preserved.
 RUN sed -i 's/^lxml>=4\.6\.3,<5$/lxml>=6.0.1,<7/' requirements.txt
+# Upstream v4.0 pins cryptography>=3.4.8,<4 and pyOpenSSL>=21.0.0,<22. Both
+# pins move together: pyOpenSSL 26 requires cryptography 49-50. SpiderFoot
+# touches this stack only in sflib.parseCert (load_pem_x509_certificate,
+# OpenSSL.crypto.load_certificate/dump_certificate/get_notAfter), whose API is
+# unchanged in 50.0.2 + 26.4.0 — verified against that exact pair.
+RUN sed -i 's/^cryptography>=3\.4\.8,<4$/cryptography>=50,<51/' requirements.txt
+RUN sed -i 's/^pyOpenSSL>=21\.0\.0,<22$/pyOpenSSL>=26,<27/' requirements.txt
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-RUN pip3 install -U pip && pip3 install -r requirements.txt
+RUN pip3 install -U pip && pip3 install -r requirements.txt && \
+    pip3 install -U "setuptools>=78.1.1"
 
 FROM docker.io/library/alpine:3.24@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a
 ARG VERSION
