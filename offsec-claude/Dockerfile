@@ -44,7 +44,7 @@ RUN python3 -m pip install \
 # commit SHA. That replaces the release-archive checksums this stage used to
 # verify.
 # ---------------------------------------------------------------------------
-FROM docker.io/library/golang:1.27-alpine3.23@sha256:8a5046497cda39860b832ffdbe8dd66018a0f05bb01352f533a36e7e2ced66a0 AS interactsh
+FROM docker.io/library/golang:1.27-alpine3.23@sha256:f70850ef6ce341e8b6427f677049145d63c0b7ce002d4d7e3d464828b1b96dcd AS interactsh
 
 ARG INTERACTSH_VERSION=1.4.1
 ARG INTERACTSH_COMMIT=a5b78b2f1d990cd18c85cc422f0e651cf204c464
