@@ -17,19 +17,10 @@ on:
           - offsec-claude
           - gluetun
           - haproxy-sni
+          - nmap
           - squid-hardened
   push:
     branches: [main]
-    paths:
-      - 'caddy/**'
-      - 'spiderfoot/**'
-      - 'file-scanner/**'
-      - 'claude-runner/**'
-      - 'offsec-claude/**'
-      - 'gluetun/**'
-      - 'haproxy-sni/**'
-      - 'squid-hardened/**'
-      - '.github/workflows/build.yml'
   schedule:
     # Weekly CVE/base-image refresh — Sunday 03:17 UTC
     - cron: '17 3 * * 0'
@@ -45,7 +36,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  ALL_IMAGES: '["caddy","claude-runner","file-scanner","gluetun","haproxy-sni","offsec-claude","spiderfoot","squid-hardened"]'
+  ALL_IMAGES: '["caddy","claude-runner","file-scanner","gluetun","haproxy-sni","nmap","offsec-claude","spiderfoot","squid-hardened"]'
 
 jobs:
   plan:
@@ -55,48 +46,51 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 2
+          fetch-depth: 0
+
+      - name: Every image directory is registered
+        run: |
+          set -euo pipefail
+          status=0
+          for dockerfile in */Dockerfile; do
+            image=${dockerfile%/Dockerfile}
+            grep -qE "^${image}:" .github/image-filters.yaml \
+              || { echo "not registered in .github/image-filters.yaml: $image" >&2; status=1; }
+          done
+          exit "$status"
+
+      - id: changed
+        if: github.event_name == 'push'
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d  # v4.0.3
+        with:
+          base: ${{ github.ref }}
+          filters: .github/image-filters.yaml
 
       - id: select
         env:
           EVENT: ${{ github.event_name }}
           INPUT_IMAGE: ${{ inputs.image }}
+          CHANGED: ${{ steps.changed.outputs.changes }}
         run: |
           set -euo pipefail
-          all='${{ env.ALL_IMAGES }}'
 
           case "$EVENT" in
+            push)
+              images="$CHANGED"
+              ;;
             workflow_dispatch)
               if [ "$INPUT_IMAGE" = "all" ]; then
-                images="$all"
+                images="$ALL_IMAGES"
               else
                 images=$(jq -cn --arg i "$INPUT_IMAGE" '[$i]')
               fi
               ;;
-            schedule)
-              images="$all"
-              ;;
-            push)
-              changed=$(git diff --name-only HEAD^ HEAD)
-              # Workflow file change -> rebuild all to prove the pipeline still works
-              if echo "$changed" | grep -q '^\.github/workflows/build\.yml$'; then
-                images="$all"
-              else
-                images=$(echo "$all" | jq -c --arg c "$changed" '
-                  ($c | split("\n")) as $lines
-                  | [ .[] as $img
-                      | select($lines | any(startswith($img + "/")))
-                      | $img ]
-                ')
-                # No matching image dirs changed → nothing to build
-                if [ "$images" = "[]" ]; then echo "No image dirs changed"; fi
-              fi
-              ;;
             *)
-              images="$all"
+              images="$ALL_IMAGES"
               ;;
           esac
 
+          images=${images:-[]}
           echo "images=$images" >> "$GITHUB_OUTPUT"
           echo "Selected: $images"
 
