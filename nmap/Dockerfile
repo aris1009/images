@@ -1,10 +1,11 @@
 ARG VERSION
 
-# Static-build stage. Alpine on amd64 is a musl-native environment, so anything
-# compiled here against musl + the static deps below produces a fully static
-# binary with no dynamic loader required at runtime.
+# Static-build stage. Alpine on amd64 or arm64 is a musl-native environment, so
+# anything compiled here against musl + the static deps below produces a fully
+# static binary with no dynamic loader required at runtime.
 FROM docker.io/library/alpine:3.24@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a AS build
 ARG VERSION
+ARG TARGETARCH
 
 RUN apk add --no-cache \
     build-base \
@@ -48,18 +49,25 @@ RUN curl -fsSL -o zlib.tar.gz "https://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar
 # ---- OpenSSL 3.0 (no-shared, no-dso, no-engine — pure static) ----
 ARG OPENSSL_VERSION=3.0.16
 ARG OPENSSL_SHA256=57e03c50feab5d31b152af2b764f10379aecd8ee92f16c985983ce4a99f7ef86
-RUN curl -fsSL -o openssl.tar.gz "https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/openssl-${OPENSSL_VERSION}.tar.gz" \
-    && echo "${OPENSSL_SHA256}  openssl.tar.gz" | sha256sum -c - \
-    && tar xf openssl.tar.gz \
-    && cd "openssl-${OPENSSL_VERSION}" \
-    && ./Configure linux-x86_64 \
+RUN set -eux; \
+    case "$TARGETARCH" in \
+      amd64) openssl_target=linux-x86_64 ;; \
+      arm64) openssl_target=linux-aarch64 ;; \
+      *) echo "unsupported TARGETARCH: $TARGETARCH" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL -o openssl.tar.gz "https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/openssl-${OPENSSL_VERSION}.tar.gz"; \
+    echo "${OPENSSL_SHA256}  openssl.tar.gz" | sha256sum -c -; \
+    tar xf openssl.tar.gz; \
+    cd "openssl-${OPENSSL_VERSION}"; \
+    ./Configure "$openssl_target" \
         --prefix=$PREFIX \
         --openssldir=$PREFIX/ssl \
         --libdir=lib \
-        no-shared no-dso no-engine no-tests no-async \
-    && make -j"$(nproc)" \
-    && make install_sw install_ssldirs \
-    && cd .. && rm -rf "openssl-${OPENSSL_VERSION}" openssl.tar.gz
+        no-shared no-dso no-engine no-tests no-async; \
+    make -j"$(nproc)"; \
+    make install_sw install_ssldirs; \
+    cd ..; \
+    rm -rf "openssl-${OPENSSL_VERSION}" openssl.tar.gz
 
 # ---- libpcap (static, no rdma/dbus/usb/bluetooth to keep dep surface small) ----
 ARG LIBPCAP_VERSION=1.10.5

@@ -1,0 +1,12 @@
+# One filter per image directory; the filter name is the directory name.
+# dorny/paths-filter returns the names that matched, and the build job uses
+# that list as its matrix.
+caddy: ['caddy/**']
+claude-runner: ['claude-runner/**']
+file-scanner: ['file-scanner/**']
+gluetun: ['gluetun/**']
+haproxy-sni: ['haproxy-sni/**']
+nmap: ['nmap/**']
+offsec-claude: ['offsec-claude/**']
+spiderfoot: ['spiderfoot/**']
+squid-hardened: ['squid-hardened/**']

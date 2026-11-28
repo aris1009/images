@@ -16,6 +16,7 @@ with [SLSA build provenance](https://slsa.dev/) + SBOM to
 | `file-scanner` | Alpine + `clamav` (clamdscan client) + `inotify-tools` + generic watcher script; pairs with a separate `clamd` container. |
 | `gluetun` | VPN client rebuilt from pinned `qdm12/gluetun` source; mirrors upstream runtime verbatim (alpine + openvpn 2.5/2.6 dual install). |
 | `haproxy-sni` | TLS-SNI egress allowlist (HAProxy `mode tcp`). Deny-by-default, no MITM/decrypt; routes allowlisted hosts to their real upstream by ClientHello SNI. Mount `allowlist.txt` (one host/line); app reaches the proxy by DNS alias. |
+| `nmap` | Statically linked nmap built from pinned upstream source against static OpenSSL, libpcap, libssh2, pcre2 and zlib, with the NSE scripts and datafiles. Multi-arch. `-sV` and `--script` need `/usr/local/share/nmap` next to the binary. |
 | `offsec-claude` | `node:24-slim` + `@anthropic-ai/claude-code` + offensive toolbelt (`openssl`, `socat`, `python3` with hash-pinned `requests`/`pyjwt`, `interactsh-client`). No pip, no sudo, no firewall tooling — designed to run inside an external egress cage. |
 | `spiderfoot` | OSINT scanner rebuilt from pinned `smicallef/spiderfoot` source (no official registry image). |
 | `squid-hardened` | Squid forward proxy built from pinned upstream source. Shell-less, non-root, no helper binaries, no interception/transparent modes. Deny-by-default; configure by mounting `squid.conf` or `/etc/squid/conf.d/` drop-ins. |
