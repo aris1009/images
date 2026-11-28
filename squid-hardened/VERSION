@@ -1,0 +1,2 @@
+# renovate: datasource=github-tags depName=squid-cache/squid extractVersion=^SQUID_(?<version>.*)$ versioning=regex:^(?<major>\d+)_(?<minor>\d+)$
+7.8

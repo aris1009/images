@@ -17,6 +17,7 @@ on:
           - offsec-claude
           - gluetun
           - haproxy-sni
+          - squid-hardened
   push:
     branches: [main]
     paths:
@@ -27,6 +28,7 @@ on:
       - 'offsec-claude/**'
       - 'gluetun/**'
       - 'haproxy-sni/**'
+      - 'squid-hardened/**'
       - '.github/workflows/build.yml'
   schedule:
     # Weekly CVE/base-image refresh — Sunday 03:17 UTC
@@ -43,7 +45,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  ALL_IMAGES: '["caddy","claude-runner","file-scanner","gluetun","haproxy-sni","offsec-claude","spiderfoot"]'
+  ALL_IMAGES: '["caddy","claude-runner","file-scanner","gluetun","haproxy-sni","offsec-claude","spiderfoot","squid-hardened"]'
 
 jobs:
   plan:
